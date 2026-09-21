@@ -1,0 +1,18 @@
+repos:
+  - repo: https://github.com/JohnnyMorganz/StyLua
+    rev: v2.5.2
+    hooks:
+      - id: stylua
+
+  - repo: local
+    hooks:
+      - id: lua-language-server-check
+        name: lua language server check
+        language: system
+        entry: lua-language-server
+        args:
+          - --check
+          - .
+        types:
+          - lua
+        pass_filenames: false

@@ -1,0 +1,63 @@
+name: pre-commit
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  pre-commit:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.x"
+
+      - name: Cache pre-commit
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pre-commit
+          key: pre-commit-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
+
+      - name: Cache LuaLS
+        id: cache-luals
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/share/lua-language-server
+          key: luals-${{ runner.os }}-3.19.1
+
+      - name: Install LuaLS
+        if: steps.cache-luals.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ~/.local/share/lua-language-server
+
+          curl -fsSL \
+            https://github.com/LuaLS/lua-language-server/releases/download/3.19.1/lua-language-server-3.19.1-linux-x64.tar.gz \
+            | tar -xz -C ~/.local/share/lua-language-server
+
+      - name: Configure LuaLS
+        run: |
+          mkdir -p ~/.local/bin
+
+          cat > ~/.local/bin/lua-language-server <<'EOF'
+          #!/bin/sh
+
+          CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/lua-language-server"
+          mkdir -p "$CACHE/log" "$CACHE/meta"
+
+          exec "$HOME/.local/share/lua-language-server/bin/lua-language-server" \
+              --logpath="$CACHE/log" \
+              --metapath="$CACHE/meta" \
+              "$@"
+          EOF
+
+          chmod +x ~/.local/bin/lua-language-server
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Install pre-commit
+        run: pip install pre-commit
+
+      - name: Run pre-commit
+        run: pre-commit run --all-files --show-diff-on-failure --color=always
